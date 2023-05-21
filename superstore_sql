@@ -1,0 +1,268 @@
+-- Adding in Person table and values
+CREATE TABLE people (
+	person varchar(25),
+	region varchar (25)
+);
+
+INSERT INTO people (person, region)
+VALUES ('Anna Andreadi', 'West');
+
+INSERT INTO people (person, region)
+VALUES ('Chuck Magee', 'East');
+
+INSERT INTO people (person, region)
+VALUES ('Kelly Williams', 'Central');
+
+INSERT INTO people (person, region)
+VALUES ('Cassandra Brandow', 'South');
+
+-- Data Exploration of the Superstore Data
+SELECT *
+FROM superstore;
+
+-- Total sales and Profit by Year
+SELECT YEAR(OrderDate), round(SUM(Sales)) as total_sales, round(SUM(Profit)) as total_profit
+FROM superstore
+GROUP BY 1;
+
+-- Expenses by Year
+SELECT YEAR(OrderDate), (Sales) as Total_Sales, (SUM(Sales)-SUM(Profit)) AS total_expenses
+FROM superstore
+GROUP BY 1, 2;
+
+-- Total number of customers
+SELECT COUNT(CustomerID) AS total_customers
+FROM superstore;
+
+-- Distinct Customers
+SELECT COUNT(DISTINCT(CustomerID))
+FROM superstore;
+
+-- Number of customers by segment
+SELECT Segment, COUNT(OrderID) AS Customers
+FROM superstore
+GROUP BY 1
+ORDER BY 2 DESC;
+
+-- What region has the most customers?
+SELECT region, COUNT(DISTINCT(CustomerID)) AS customers, TRUNCATE(SUM(Sales), 2) AS total_sales, TRUNCATE(SUM(Profit), 2) AS total_profit, TRUNCATE((SUM(Profit)/SUM(Sales)*100),2) AS profit_margin
+FROM superstore
+GROUP BY 1
+ORDER BY 2 DESC;
+-- South has lowest amount of customers, but while Central region has higher sales than South region, profit is lower than South.
+
+-- What states are performing poorly in terms of customers in the South and Central region?
+SELECT state, region, COUNT(DISTINCT(CustomerID)) AS customers, TRUNCATE(SUM(Sales), 2) AS total_sales, TRUNCATE(SUM(Profit), 2) AS total_profit
+FROM superstore
+WHERE region = 'South' OR region = 'Central'
+GROUP BY 1, 2
+ORDER BY 5;
+-- Texas, Illinois, North Carolina, Tennessee, and Florida have negative profit.
+
+-- Which state has the most customers?
+SELECT state, region, COUNT(DISTINCT(CustomerID)) AS customers
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+
+-- States by Total Profit
+SELECT state, region, COUNT(DISTINCT(CustomerID)) AS customers, TRUNCATE(SUM(Sales), 2) AS total_sales, TRUNCATE(SUM(Profit), 2) AS total_profit
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 5 DESC;
+
+-- One time Customers
+SELECT COUNT(CustomerID)
+FROM superstore
+WHERE CustomerID NOT IN 
+	(SELECT CustomerID FROM superstore GROUP BY 1 HAVING COUNT(*) > 1);
+
+-- What states have the lowest profitability?
+SELECT State, region, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 3 ASC;
+
+-- Why Negative Profit in Texas?
+SELECT State, OrderID, TRUNCATE(SUM(Profit),2) AS total_profit, sub, ProductName
+FROM superstore
+WHERE State = 'Texas'
+GROUP BY 2, 4, 5
+ORDER BY 3 ASC
+LIMIT 10;
+
+SELECT State, s.OrderID, SentBack, Profit, ShipMode, CustomerName, Segment, Category, Sub, ProductName, Quantity, Discount
+FROM superstore s
+JOIN back b 
+	ON s.OrderID = b.OrderID
+WHERE State = 'Texas'
+ORDER BY 4 ASC
+LIMIT 10;
+
+-- States average compared to their region average
+WITH avg_region AS (
+	SELECT region, AVG(Profit) AS avg_region_profit
+    FROM superstore
+    GROUP BY region
+)
+
+SELECT s.State, s.region, TRUNCATE(avg_region_profit, 2) AS region_avg_profit, TRUNCATE(AVG(Profit),2) AS state_avg_profit, TRUNCATE(AVG(Profit)- avg_region_profit,2) AS relation_to_avg
+FROM superstore s
+JOIN avg_region r
+	ON s.region = r.region
+GROUP BY 1, 2
+ORDER BY 5 ASC;
+
+-- Number of Customers per State
+SELECT State, Region, COUNT(DISTINCT(CustomerID)) AS total_customers
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+
+-- Which cities have the most sales?
+SELECT city, region, TRUNCATE(SUM(Sales),2) AS total_sales, SUM(quantity) AS total_quantity, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+
+-- Which cities have the most profit?
+SELECT city, region, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+
+-- Which cities have the least profit?
+SELECT city, region, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+GROUP BY 1, 2
+ORDER BY 3 ASC;
+
+-- Number of Returns per city
+SELECT city, region, TRUNCATE(SUM(Sales),2) AS total_sales, TRUNCATE(SUM(Profit),2) AS total_profit, COUNT(b.OrderID) AS sent_back
+FROM superstore s
+LEFT JOIN back b
+	ON s.OrderID = b.OrderID
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+
+-- People by Profit
+SELECT p.person, p.region, SUM(Quantity)total_quantity, TRUNCATE(SUM(Sales),2) AS total_sales,TRUNCATE(SUM(s.profit),2) AS total_profit, TRUNCATE((SUM(Profit)/SUM(Sales)*100),2) AS profit_margin
+FROM superstore s
+JOIN people p
+ON s.region = p.region
+GROUP BY 1, 2
+ORDER BY 5 DESC;
+
+-- States that are below average revenue 
+SELECT state, TRUNCATE(AVG(Sales),2) AS avg_sales
+FROM superstore
+GROUP BY 1
+HAVING AVG(Sales) < 
+	(SELECT AVG(Sales)
+	FROM superstore)
+ORDER BY 2 ASC;
+
+-- Quantity and Sales per year
+SELECT DISTINCT(day(orderdate)) as Yr, SUM(Quantity) AS QTY, TRUNCATE(SUM(Sales),2) as total_sales
+FROM superstore
+GROUP BY Yr;
+
+-- Avg profit per order
+SELECT (SUM(Profit)/COUNT(OrderID)) AS Avg_Profit
+FROM superstore;
+
+-- Investigating sales from category level from total of sales
+SELECT category, TRUNCATE(SUM(sales),2) AS total_sales, TRUNCATE(SUM(Profit),2) AS total_profit, SUM(Quantity) AS total_quantity
+FROM superstore
+GROUP BY category
+ORDER BY 2 DESC;
+
+-- Sales for the most part is quite similar, but Furniture's profit is much lower. Why?
+SELECT sub, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+WHERE category = 'Furniture'
+GROUP BY 1
+ORDER BY 2;
+
+-- Tables and Bookcases are negative. Why?
+SELECT ProductName, TRUNCATE(SUM(Profit),2) AS total_profit, AVG(discount) AS avg_discount
+FROM superstore
+WHERE sub = 'Tables' OR 'Bookcases'
+GROUP BY 1
+ORDER BY 2;
+
+-- Average price of categories
+SELECT category, SUM(sales) AS Sales_Total, SUM(Quantity) AS Quantity_Total, (SUM(sales)/SUM(Quantity)) AS Average_Price, SUM(Profit) AS Total_Profit
+FROM superstore
+GROUP BY category
+ORDER BY 2 DESC;
+
+-- Subcategory view
+SELECT Sub, TRUNCATE(SUM(sales),2) AS total_sales, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+GROUP BY 1
+ORDER BY 3 DESC;
+
+SELECT Category, Sub, TRUNCATE(SUM(sales),2) AS total_sales, TRUNCATE(SUM(Profit),2) AS total_profit, SUM(Quantity) AS Quantity_Total, round((SUM(sales)/SUM(Quantity))) AS Average_Price
+FROM superstore
+GROUP BY 2, 1
+ORDER BY 3 DESC;
+
+-- Top 10 products by Profit
+SELECT ProductName, TRUNCATE(SUM(Profit),2) AS total_profit
+FROM superstore
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 10;
+
+SELECT ProductName, TRUNCATE(SUM(Sales),2) AS total_sales, SUM(Quantity) AS total_quantity
+FROM superstore
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 10;
+
+-- Top 5 categories by Sales
+SELECT Sub, TRUNCATE(SUM(Sales),2) AS total_sales, SUM(Quantity) AS total_quantity
+FROM superstore
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 5;
+
+-- Least products and categories by sales, quantity
+SELECT Sub, TRUNCATE(SUM(Sales),2) AS total_sales, SUM(Quantity) AS total_quantity
+FROM superstore
+GROUP BY 1
+ORDER BY 2 ASC
+LIMIT 5;
+
+SELECT Sub, TRUNCATE(SUM(Sales),2) AS total_sales, TRUNCATE(SUM(Profit),2) AS total_profit, SUM(Quantity) AS total_quantity
+FROM superstore
+GROUP BY 1
+ORDER BY 3 ASC
+LIMIT 5;
+
+-- Products average compared to the avgerage in their category
+WITH avg_profit AS (
+	SELECT sub, AVG(Profit) AS avg_sub_profit
+    FROM superstore
+    GROUP BY sub
+)
+
+SELECT s.ProductName, s.sub, TRUNCATE(avg_sub_profit,2) AS sub_avg_profit, TRUNCATE(AVG(Profit),2) AS product_avg_profit, TRUNCATE(AVG(Profit)- avg_sub_profit,2) AS relation_to_avg
+FROM superstore s
+JOIN avg_profit p
+	ON s.sub = p.sub
+GROUP BY 1, 2
+ORDER BY 2 ASC, 1 ASC;
+
+-- Top 5 customer spending
+SELECT CustomerName, segment, State, TRUNCATE(SUM(Sales),2) AS total_sales, SUM(Quantity), TRUNCATE(SUM(profit),2) AS total_sales
+FROM superstore
+GROUP BY 1, 3, 2
+ORDER BY 4 DESC;
+
+-- Ship Mode exploration
+SELECT ShipMode, TRUNCATE(SUM(Sales),2) AS total_sales, TRUNCATE(SUM(profit),2) AS total_profit, TRUNCATE((SUM(Profit)/SUM(Sales)*100),2) AS profit_margin
+FROM superstore
+GROUP BY 1
+ORDER BY 3 DESC;
